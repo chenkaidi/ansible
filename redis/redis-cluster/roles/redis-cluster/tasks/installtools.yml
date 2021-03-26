@@ -1,0 +1,52 @@
+- name: Get rpm
+  shell: wget http://rpms.famillecollet.com/enterprise/remi-release-7.rpm
+
+- name: Install rpm
+  ignore_errors: yes
+  shell: rpm -Uvh remi-release-7.rpm
+
+- name: Enable remi repo
+  shell: sed -i 's/enabled=0/enabled=1/g' /etc/yum.repos.d/remi.repo
+
+
+- name: Insall Redis
+  include_tasks: installredis.yml
+
+- name: check dir
+  include_tasks: checkdir.yml
+  vars:
+    folder: "/etc/redis"
+
+- name: Remove default redis service
+  ignore_errors: yes
+  shell: |
+    systemctl disable redis 
+
+- name: Delete redis service
+  ignore_errors: yes
+  file: 
+    path: "{{ item }}"
+    state: absent
+  with_items: 
+    - /usr/lib/systemd/system/redis.service
+    - /etc/systemd/system/redis.service.d
+    - /etc/systemd/system/redis-sentinel.service.d
+
+- name: Disable SELinux
+  shell: |
+    setenforce 0
+    sed -i 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/selinux/config
+
+- name: Allow Overcommit Memory
+  sysctl:
+    name: vm.overcommit_memory
+    value: "1"
+    state: present
+    reload: yes
+    ignoreerrors: yes
+
+- name: Stop and disable firewalld.
+  service:
+    name: firewalld
+    state: stopped
+    enabled: False
